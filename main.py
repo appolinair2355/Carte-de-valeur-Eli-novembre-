@@ -1,16 +1,17 @@
 """
 Main application file with Telegram API handler (using requests) and Polling loop.
-Déploiement sur Render.com en mode Polling (Worker).
+Déploiement sur Render.com en mode Web Service + Threaded Polling.
+Le port 10000 est exposé via Gunicorn pour satisfaire Render.
 """
 
 import os
 import time
 import logging
 import requests
-import re
 from flask import Flask 
 from typing import Dict, Optional, List
 from card_predictor import card_predictor, TARGET_CHANNEL_ID, PREDICTION_CHANNEL_ID
+import threading
 
 # --- Configuration et Initialisation ---
 
@@ -20,20 +21,15 @@ logger = logging.getLogger(__name__)
 # Récupération du jeton et configuration de l'API
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN n'est pas configuré.")
+    logger.critical("BOT_TOKEN n'est pas configuré. Arrêt du bot.")
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
-# Chat ID pour l'alerte automatique (lu depuis les variables d'environnement)
+# Chat ID pour l'alerte automatique
 ADMIN_CHAT_ID = os.environ.get('ADMIN_CHAT_ID') 
 
-# Flask setup (minimal, pour satisfaire Render/Gunicorn)
+# Flask setup (Écoute sur le port 10000)
 app = Flask(__name__)
-PORT = int(os.environ.get('PORT', 10000))
-
-@app.route('/')
-def home():
-    """Simple health check endpoint."""
-    return "Bot Predictor is running in Polling mode.", 200
+PORT = int(os.environ.get('PORT', 10000)) 
 
 # --- Classe d'Interaction avec l'API Telegram (tg_api) ---
 
@@ -48,7 +44,7 @@ class TelegramBotAPI:
         """Generic method to send a request to the Telegram API."""
         url = self.api_url + method
         try:
-            response = requests.post(url, json=data)
+            response = requests.post(url, json=data, timeout=5) 
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -103,7 +99,7 @@ class TelegramBotAPI:
 
 tg_api = TelegramBotAPI(API_URL)
 
-# --- Gestionnaires de Commandes ---
+# --- Gestionnaires de Commandes (Non modifiés) ---
 
 def handle_start_command(chat_id):
     tg_api.send_message(chat_id, "Bot DAME PRÉDICTION démarré. Utilisez /status ou /help.", parse_mode=None)
@@ -153,7 +149,6 @@ def handle_inter_command(chat_id):
             trigger_draw = history.get(trigger_number)
             
             if trigger_draw:
-                # Utilisation des deux premières cartes comme déclencheur
                 trigger_content = trigger_draw.get('first_two_cards', 'N/A')
                 dame_content = current_draw.get('first_group', 'N/A')
                 
@@ -179,7 +174,6 @@ def handle_inter_command(chat_id):
     else:
         message_text = "🚨 **ALERTE.** Échecs potentiels atteints, mais historique N-2 → Q incomplet."
 
-    # Création du Reply Markup JSON pour les boutons inline
     reply_markup = {
         "inline_keyboard": [
             [
@@ -212,7 +206,7 @@ def handle_callback_query(callback_query_id: str, chat_id: str, message_id: int,
         
     tg_api.edit_message_text(chat_id, message_id, new_text)
 
-# --- Logique de Traitement Principal des Mises à Jour ---
+# --- Logique de Traitement Principal des Mises à Jour (Non modifiée) ---
 
 def process_update(update: Dict):
     """Processes a single Telegram Update (Message or Callback)."""
@@ -282,12 +276,12 @@ def process_update(update: Dict):
 
 
 def polling_loop():
-    """Main polling loop for the bot."""
+    """Main polling loop for the bot (runs in a separate thread)."""
     if not all([BOT_TOKEN, TARGET_CHANNEL_ID, PREDICTION_CHANNEL_ID]):
-        logger.critical("Configuration manquante. Veuillez vérifier les variables d'environnement.")
+        logger.critical("Configuration manquante. Le Polling ne peut pas démarrer.")
         return
         
-    logger.info("Bot démarré en mode Polling.")
+    logger.info("Bot Polling démarré en thread séparé.")
     
     # S'assurer que le Webhook est désactivé avant de commencer le Polling
     tg_api._request('deleteWebhook', data={'drop_pending_updates': True})
@@ -299,7 +293,18 @@ def polling_loop():
                 process_update(update)
         time.sleep(1) 
 
-if __name__ == '__main__':
-    polling_loop()
-    
+# --- Démarrage du Bot ---
+
+# Démarrer le Polling dans un thread séparé immédiatement
+polling_thread = threading.Thread(target=polling_loop)
+polling_thread.start()
+logger.info("Thread de Polling lancé en arrière-plan.")
+
+# Point d'entrée pour Gunicorn. Ceci permet à Render de voir l'application écouter le port 10000.
+@app.route('/')
+def home():
+    """Endpoint pour le Health Check de Render."""
+    return "Bot Predictor is running (Polling active in thread).", 200
+
 application = app 
+
