@@ -29,7 +29,10 @@ class CardPredictor:
         
         # Gestion de l'historique
         self.draw_history = {} 
-        self.history_limit = 10 
+        self.history_limit = 10
+        
+        # Suivi des messages en attente (⏰)
+        self.pending_messages = {}  # {game_number: message_data} 
         
     # --- Utilitaires d'Extraction ---
 
@@ -83,9 +86,16 @@ class CardPredictor:
             return False
         return bool(re.search(r'\b[Qq]\b|Dame', first_group_content))
 
+    def is_pending_message(self, text: str) -> bool:
+        """Vérifie si le message est en attente (contient ⏰)."""
+        return '⏰' in text
+    
     def has_completion_indicators(self, text: str) -> bool:
         """Vérifie si le message source est finalisé (contient des indicateurs de fin)."""
-        COMPLETION_INDICATORS = ['✅', '🔰', '❌', '🔴']
+        # Messages finalisés
+        COMPLETION_INDICATORS = ['✅', '🔰']
+        
+        # Vérifier si le message est finalisé
         return any(indicator in text for indicator in COMPLETION_INDICATORS)
 
     # --- Logique de Prédiction ---
@@ -175,34 +185,28 @@ class CardPredictor:
         # Règles du Mode Intelligent
         if dame_rule in ["Q_IMMEDIATE", "Q_IMMEDIATE_JJ"]:
              target_game = game_number + 2
-             if dame_rule == "Q_IMMEDIATE_JJ":
-                 prediction_text = f"🎯{target_game}🎯: Dame (Q) **IMMINENTE** (JJ) statut :⏳"
-             else:
-                 prediction_text = f"🎯{target_game}🎯: Dame (Q) **IMMINENTE** (J/K+J) statut :⏳"
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
                  
         elif dame_rule in ["Q_NEXT_DRAW", "Q_WAIT_1"]:
              target_game = game_number + 3 
-             if dame_rule == "Q_NEXT_DRAW":
-                 prediction_text = f"🎯{target_game}🎯: Dame (Q) **PROCHAIN** (K seul) statut :⏳"
-             else: # Q_WAIT_1
-                 prediction_text = f"🎯{target_game}🎯: Dame (Q) **ATTENTE 1** (A+K) statut :⏳"
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
         
         # Règles par Défaut (Mode INACTIF)
         elif dame_rule == "Q_DEFAULT_J_OR_KJ":
              target_game = game_number + 1
-             prediction_text = f"🎯{target_game}🎯: Dame (Q) **FIGURES** (J/K+J) statut :⏳"
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
         
         elif dame_rule == "Q_DEFAULT_K":
              target_game = game_number + 1
-             prediction_text = f"🎯{target_game}🎯: Dame (Q) **ROI** (K seul) statut :⏳"
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
         
         elif dame_rule == "Q_DEFAULT_A":
              target_game = game_number + 2
-             prediction_text = f"🎯{target_game}🎯: Dame (Q) **AS** (A isolé) statut :⏳"
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
         
         else:
              target_game = game_number + 2
-             prediction_text = f"🎯{target_game}🎯: Dame (Q) **EN COURS** statut :⏳"
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
 
         self.predictions[target_game] = {
             'predicted_costume_or_value': predicted_value_or_costume,
@@ -222,23 +226,6 @@ class CardPredictor:
 
         if not self.has_completion_indicators(text):
             return None
-
-        # --- GESTION DE L'HISTORIQUE (pour la fonction /inter) ---
-        first_group_content = self.extract_first_group_content(text) 
-        first_two_cards = self.extract_first_two_cards_with_value(text) 
-        
-        if first_group_content:
-            self.draw_history[game_number] = {
-                'text': text, 
-                'first_group': first_group_content, 
-                'message_id': message_id,
-                'first_two_cards': first_two_cards 
-            }
-        
-            if len(self.draw_history) > self.history_limit:
-                oldest_key = min(self.draw_history.keys())
-                del self.draw_history[oldest_key]
-        # -----------------------------------------------------
         
         if not self.predictions: return None
 

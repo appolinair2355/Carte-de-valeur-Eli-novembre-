@@ -3,6 +3,7 @@ Implémentation de l'interaction avec l'API Telegram (Webhook et requêtes).
 """
 import os
 import time
+import json
 import requests
 import logging
 from typing import Dict, Optional, List
@@ -24,7 +25,15 @@ class TelegramBot:
                  return None
             response = requests.post(url, json=data, timeout=5)
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+            
+            # Vérifier si l'API Telegram a retourné ok=false
+            if not result.get('ok'):
+                logger.error(f"❌ API Telegram a retourné ok=false pour {method}")
+                logger.error(f"Description: {result.get('description', 'Aucune description')}")
+                logger.error(f"Données envoyées: {data}")
+            
+            return result
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ Erreur API Telegram ({method}): {e}")
             if hasattr(e, 'response') and e.response is not None:
@@ -63,7 +72,7 @@ class TelegramBot:
 
     # --- Méthodes API ---
 
-    def send_message(self, chat_id: str, text: str, parse_mode: Optional[str] = None, reply_markup: Optional[Dict] = None) -> Optional[int]:
+    def send_message(self, chat_id, text: str, parse_mode: Optional[str] = None, reply_markup: Optional[Dict] = None) -> Optional[int]:
         data = {
             'chat_id': chat_id,
             'text': text
@@ -71,14 +80,14 @@ class TelegramBot:
         if parse_mode:
             data['parse_mode'] = parse_mode
         if reply_markup:
-            data['reply_markup'] = reply_markup
+            data['reply_markup'] = json.dumps(reply_markup)
 
         result = self._request('sendMessage', data)
         if result and result.get('ok') and 'result' in result:
             return result['result'].get('message_id')
         return None
 
-    def edit_message_text(self, chat_id: str, message_id: int, text: str, parse_mode: Optional[str] = None, reply_markup: Optional[Dict] = None):
+    def edit_message_text(self, chat_id, message_id: int, text: str, parse_mode: Optional[str] = None, reply_markup: Optional[Dict] = None):
         data = {
             'chat_id': chat_id,
             'message_id': message_id,
@@ -87,7 +96,7 @@ class TelegramBot:
         if parse_mode:
             data['parse_mode'] = parse_mode
         if reply_markup:
-            data['reply_markup'] = reply_markup
+            data['reply_markup'] = json.dumps(reply_markup)
 
         self._request('editMessageText', data)
 
