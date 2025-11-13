@@ -18,6 +18,7 @@ config = Config()
 
 if not config.BOT_TOKEN:
     logger.critical("❌ FATAL - BOT_TOKEN n'est pas configuré. Le bot ne peut pas démarrer.")
+    config.BOT_TOKEN = ""
 
 # Créer l'instance du bot pour l'API Telegram
 bot = TelegramBot(config.BOT_TOKEN)
@@ -36,24 +37,55 @@ def health():
 @app.route('/', methods=['GET'])
 def home():
     """Page d'accueil."""
-    return jsonify({"message": "Telegram Bot Predictor is running (Webhook mode)", "status": "active"}), 200
+    webhook_info_url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/getWebhookInfo"
+    try:
+        import requests
+        response = requests.get(webhook_info_url, timeout=5)
+        webhook_info = response.json() if response.status_code == 200 else {}
+    except:
+        webhook_info = {}
+    
+    return jsonify({
+        "message": "Telegram Bot Predictor is running (Webhook mode)", 
+        "status": "active",
+        "webhook_configured": webhook_info.get('result', {}).get('url', 'Non configuré'),
+        "bot_token_configured": bool(config.BOT_TOKEN)
+    }), 200
+
+@app.route('/test_bot', methods=['GET'])
+def test_bot():
+    """Teste si le bot peut envoyer un message à l'admin."""
+    if not config.ADMIN_CHAT_ID:
+        return jsonify({"status": "error", "message": "ADMIN_CHAT_ID non configuré"}), 500
+    
+    try:
+        test_message = "🧪 Test du bot - Le bot fonctionne correctement !"
+        message_id = bot.send_message(config.ADMIN_CHAT_ID, test_message)
+        if message_id:
+            return jsonify({"status": "success", "message": "Message de test envoyé à l'admin"}), 200
+        else:
+            return jsonify({"status": "error", "message": "Échec de l'envoi du message"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # --- Route de Configuration Webhook (Utile pour le setup) ---
-# NOTE: RENDER_EXTERNAL_URL est une variable d'environnement injectée par Render
-RENDER_EXTERNAL_URL = os.environ.get('RENDER_EXTERNAL_URL') 
+# NOTE: REPLIT_DEV_DOMAIN est une variable d'environnement sur Replit
+REPLIT_DEV_DOMAIN = os.environ.get('REPLIT_DEV_DOMAIN')
+RENDER_EXTERNAL_URL = os.environ.get('RENDER_EXTERNAL_URL')
+EXTERNAL_URL = REPLIT_DEV_DOMAIN or RENDER_EXTERNAL_URL
 
 @app.route('/set_webhook', methods=['GET'])
 def set_webhook_route():
-    """Configure le Webhook vers l'URL externe de Render (à appeler une fois)."""
-    if not RENDER_EXTERNAL_URL:
-        return jsonify({"status": "error", "message": "RENDER_EXTERNAL_URL non défini. Redémarrez le service ou ajoutez la variable manuellement."}), 500
+    """Configure le Webhook vers l'URL externe (Replit ou Render)."""
+    if not EXTERNAL_URL:
+        return jsonify({"status": "error", "message": "URL externe non définie. Vérifiez les variables d'environnement."}), 500
     
-    webhook_url = f"https://{RENDER_EXTERNAL_URL}/webhook"
+    webhook_url = f"https://{EXTERNAL_URL}/webhook"
     
     if bot.set_webhook(webhook_url):
-        return jsonify({"status": "success", "message": f"Webhook configuré vers {webhook_url}"}), 200
+        return jsonify({"status": "success", "message": f"✅ Webhook configuré avec succès vers : {webhook_url}"}), 200
     else:
-        return jsonify({"status": "error", "message": "Échec de la configuration du Webhook (voir les logs pour l'erreur API)."}), 500
+        return jsonify({"status": "error", "message": "❌ Échec de la configuration du Webhook (voir les logs pour l'erreur API)."}), 500
 
 @app.route('/delete_webhook', methods=['GET'])
 def delete_webhook_route():
@@ -68,21 +100,36 @@ def delete_webhook_route():
 @app.route('/webhook', methods=['POST'])
 def telegram_webhook():
     """Route écoutant les updates POST envoyées par Telegram."""
-    if not request.is_json:
-        return jsonify({"status": "error", "message": "Format de requête invalide"}), 400
-    
-    update = request.get_json()
-    
-    if update:
-        # Passer l'instance du bot au gestionnaire pour qu'il puisse répondre
+    try:
+        logger.info("📨 Webhook appelé - Requête reçue")
+        
+        if not request.is_json:
+            logger.warning("⚠️ Requête non-JSON reçue")
+            return jsonify({"status": "ok"}), 200
+        
+        update = request.get_json()
+        
+        if not update:
+            logger.warning("⚠️ Update vide reçu")
+            return jsonify({"status": "ok"}), 200
+        
+        logger.info("📥 Update reçu de Telegram")
+        
         try:
             process_update(bot, update)
+            logger.info("✅ Update traité avec succès")
         except Exception as e:
             logger.error(f"❌ Erreur lors du traitement de l'update: {e}")
-            # Toujours répondre 200 OK pour éviter les renvois de Telegram
-    
-    # Telegram attend toujours une réponse 200 OK pour accuser réception de l'update.
-    return jsonify({"status": "ok"}), 200
+            import traceback
+            logger.error(traceback.format_exc())
+        
+        return jsonify({"status": "ok"}), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur critique dans telegram_webhook: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({"status": "ok"}), 200
 
 # --- Lancement du Programme ---
 

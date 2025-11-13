@@ -118,25 +118,53 @@ class CardPredictor:
 
         if self.has_completion_indicators(message): return False, None, None 
         
-        # Prédiction uniquement si le Mode Intelligent est ACTIF
-        if not self.intelligent_mode_active:
-             return False, None, None
-        
         signals = self.extract_figure_signals(message)
         first_group = self.extract_first_group_content(message)
         
         if not first_group: return False, None, None
         
-        dame_prediction = self.check_dame_rule(signals, first_group)
+        # MODE INTELLIGENT ACTIF : Utiliser les règles avancées K/J/A
+        if self.intelligent_mode_active:
+            dame_prediction = self.check_dame_rule(signals, first_group)
+            
+            if dame_prediction:
+                predicted_value = f"Q:{dame_prediction}"
+                message_hash = hash(message)
+                if message_hash not in self.processed_messages:
+                    self.processed_messages.add(message_hash)
+                    self.last_prediction_time = time.time()
+                    self.last_dame_prediction = predicted_value
+                    return True, game_number, predicted_value
         
-        if dame_prediction:
-            predicted_value = f"Q:{dame_prediction}"
-            message_hash = hash(message)
-            if message_hash not in self.processed_messages:
-                self.processed_messages.add(message_hash)
-                self.last_prediction_time = time.time()
-                self.last_dame_prediction = predicted_value
-                return True, game_number, predicted_value
+        # MODE PAR DÉFAUT (INACTIF) : Stratégie basée sur les figures simples
+        else:
+            # Règle par défaut : prédire Q si des figures sont présentes
+            should_predict_default = False
+            predicted_rule = None
+            
+            J, K, A = signals['J'], signals['K'], signals['A']
+            
+            # Valet seul ou K+J → Q au N+1
+            if (J and not K and not A) or (K and J):
+                should_predict_default = True
+                predicted_rule = "Q_DEFAULT_J_OR_KJ"
+            # Roi seul → Q au N+1
+            elif K and not A and not J:
+                should_predict_default = True
+                predicted_rule = "Q_DEFAULT_K"
+            # As isolé → Q au N+2
+            elif A and not K and not J:
+                should_predict_default = True
+                predicted_rule = "Q_DEFAULT_A"
+            
+            if should_predict_default and predicted_rule:
+                predicted_value = f"Q:{predicted_rule}"
+                message_hash = hash(message)
+                if message_hash not in self.processed_messages:
+                    self.processed_messages.add(message_hash)
+                    self.last_prediction_time = time.time()
+                    self.last_dame_prediction = predicted_value
+                    return True, game_number, predicted_value
         
         return False, None, None
 
@@ -144,6 +172,7 @@ class CardPredictor:
         """Crée l'objet de prédiction et génère le message."""
         dame_rule = predicted_value_or_costume.split(':')[1]
         
+        # Règles du Mode Intelligent
         if dame_rule in ["Q_IMMEDIATE", "Q_IMMEDIATE_JJ"]:
              target_game = game_number + 2
              if dame_rule == "Q_IMMEDIATE_JJ":
@@ -157,6 +186,20 @@ class CardPredictor:
                  prediction_text = f"🎯{target_game}🎯: Dame (Q) **PROCHAIN** (K seul) statut :⏳"
              else: # Q_WAIT_1
                  prediction_text = f"🎯{target_game}🎯: Dame (Q) **ATTENTE 1** (A+K) statut :⏳"
+        
+        # Règles par Défaut (Mode INACTIF)
+        elif dame_rule == "Q_DEFAULT_J_OR_KJ":
+             target_game = game_number + 1
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) **FIGURES** (J/K+J) statut :⏳"
+        
+        elif dame_rule == "Q_DEFAULT_K":
+             target_game = game_number + 1
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) **ROI** (K seul) statut :⏳"
+        
+        elif dame_rule == "Q_DEFAULT_A":
+             target_game = game_number + 2
+             prediction_text = f"🎯{target_game}🎯: Dame (Q) **AS** (A isolé) statut :⏳"
+        
         else:
              target_game = game_number + 2
              prediction_text = f"🎯{target_game}🎯: Dame (Q) **EN COURS** statut :⏳"
@@ -213,56 +256,88 @@ class CardPredictor:
             max_offset_dame = 3 
             if verification_offset < 0: continue # Le tirage n'est pas encore arrivé
             
-            status_symbol = None
-            should_fail = False
-            
-            if verification_offset == 0:
-                # Vérification au jeu cible (N+2 ou N+3)
-                status_symbol = "✅"
-            elif 0 < verification_offset <= max_offset_dame:
-                # Vérification dans les jeux suivants si le jeu cible est raté
-                status_symbol = "✅"
-            elif verification_offset > max_offset_dame:
-                # Échec final après le décalage maximal
-                status_symbol = "❌"
-                should_fail = True
-            else:
-                continue
-
-            costume_or_value_found = False
+            # Vérifier la présence de Q dans le premier groupe
+            costume_or_value_found = self.check_dame_in_first_group(text)
             original_message = prediction.get('message_text')
-
-            if not should_fail:
-                costume_or_value_found = self.check_dame_in_first_group(text) 
-
-            if costume_or_value_found:
-                # SUCCÈS
-                updated_message = original_message.replace("statut :⏳", f"statut :{status_symbol}")
-                prediction['status'] = 'correct'
-                self.consecutive_failures = 0
-                
-                return {
-                    'type': 'edit_message', 'predicted_game': predicted_game, 
-                    'new_message': updated_message, 'original_message': original_message
-                }
             
-            elif should_fail:
-                # ÉCHEC FINAL
+            # Système de vérification granulaire
+            if verification_offset == 0:
+                # Numéro prédit exact
+                if costume_or_value_found:
+                    updated_message = original_message.replace("statut :⏳", "statut :✅0️⃣")
+                    prediction['status'] = 'correct'
+                    self.consecutive_failures = 0
+                    return {
+                        'type': 'edit_message', 'predicted_game': predicted_game, 
+                        'new_message': updated_message, 'original_message': original_message
+                    }
+                # Pas trouvé, continuer à vérifier
+                continue
+                
+            elif verification_offset == 1:
+                # Prédit +1
+                if costume_or_value_found:
+                    updated_message = original_message.replace("statut :⏳", "statut :✅1️⃣")
+                    prediction['status'] = 'correct'
+                    self.consecutive_failures = 0
+                    return {
+                        'type': 'edit_message', 'predicted_game': predicted_game, 
+                        'new_message': updated_message, 'original_message': original_message
+                    }
+                # Pas trouvé, continuer à vérifier
+                continue
+                
+            elif verification_offset == 2:
+                # Prédit +2
+                if costume_or_value_found:
+                    updated_message = original_message.replace("statut :⏳", "statut :✅2️⃣")
+                    prediction['status'] = 'correct'
+                    self.consecutive_failures = 0
+                    return {
+                        'type': 'edit_message', 'predicted_game': predicted_game, 
+                        'new_message': updated_message, 'original_message': original_message
+                    }
+                # Pas trouvé, continuer à vérifier
+                continue
+                
+            elif verification_offset == 3:
+                # Prédit +3 (dernière chance)
+                if costume_or_value_found:
+                    updated_message = original_message.replace("statut :⏳", "statut :✅3️⃣")
+                    prediction['status'] = 'correct'
+                    self.consecutive_failures = 0
+                    return {
+                        'type': 'edit_message', 'predicted_game': predicted_game, 
+                        'new_message': updated_message, 'original_message': original_message
+                    }
+                else:
+                    # ÉCHEC FINAL après +3
+                    updated_message = original_message.replace("statut :⏳", "statut :❌")
+                    prediction['status'] = 'failed'
+                    self.consecutive_failures += 1
+
+                    # Déclenchement du prompt /inter pour l'administrateur
+                    if self.consecutive_failures == self.MAX_FAILURES_BEFORE_INTELLIGENT_MODE:
+                        return {'type': 'fail_threshold_reached'} 
+
+                    return {
+                        'type': 'edit_message', 'predicted_game': predicted_game, 
+                        'new_message': updated_message, 'original_message': original_message
+                    }
+                    
+            elif verification_offset > 3:
+                # Au-delà de +3, marquer comme échec
                 updated_message = original_message.replace("statut :⏳", "statut :❌")
                 prediction['status'] = 'failed'
-                
                 self.consecutive_failures += 1
-
-                # Déclenchement du prompt /inter pour l'administrateur
+                
                 if self.consecutive_failures == self.MAX_FAILURES_BEFORE_INTELLIGENT_MODE:
-                     return {'type': 'fail_threshold_reached'} 
-
+                    return {'type': 'fail_threshold_reached'}
+                    
                 return {
                     'type': 'edit_message', 'predicted_game': predicted_game, 
                     'new_message': updated_message, 'original_message': original_message
                 }
-            else:
-                continue
                 
         return None
 

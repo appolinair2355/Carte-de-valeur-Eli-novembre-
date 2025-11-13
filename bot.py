@@ -6,13 +6,8 @@ import time
 import requests
 import logging
 from typing import Dict, Optional, List
-from config import Config
-from handlers import process_update # Non utilisé directement ici, mais le module est appelé
 
 logger = logging.getLogger(__name__)
-
-# La configuration sera chargée globalement ou passée à l'instance
-config = Config()
 
 class TelegramBot:
     """Gère les requêtes API Telegram."""
@@ -20,18 +15,24 @@ class TelegramBot:
     def __init__(self, token: str):
         self.api_url = f"https://api.telegram.org/bot{token}/"
         self.token = token
-        
+
     def _request(self, method: str, data: Optional[Dict] = None) -> Optional[Dict]:
         """Méthode générique pour envoyer une requête à l'API Telegram."""
         url = self.api_url + method
         try:
             if not self.token:
-                 return None 
-            response = requests.post(url, json=data, timeout=5) 
+                 return None
+            response = requests.post(url, json=data, timeout=5)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ Erreur API Telegram ({method}): {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    logger.error(f"Détails de l'erreur: {error_detail}")
+                except:
+                    logger.error(f"Réponse brute: {e.response.text}")
             return None
 
     def set_webhook(self, webhook_url: str) -> bool:
@@ -39,7 +40,7 @@ class TelegramBot:
         # drop_pending_updates=True résout l'erreur 409 Conflict en supprimant l'ancien Webhook
         data = {
             'url': webhook_url,
-            'drop_pending_updates': True 
+            'drop_pending_updates': True
         }
         result = self._request('setWebhook', data)
         if result and result.get('ok'):
@@ -61,27 +62,33 @@ class TelegramBot:
             return False
 
     # --- Méthodes API ---
-    
-    def send_message(self, chat_id: str, text: str, parse_mode: str = 'Markdown', reply_markup: Optional[Dict] = None) -> Optional[int]:
+
+    def send_message(self, chat_id: str, text: str, parse_mode: Optional[str] = None, reply_markup: Optional[Dict] = None) -> Optional[int]:
         data = {
             'chat_id': chat_id,
-            'text': text,
-            'parse_mode': parse_mode,
-            'reply_markup': reply_markup
+            'text': text
         }
+        if parse_mode:
+            data['parse_mode'] = parse_mode
+        if reply_markup:
+            data['reply_markup'] = reply_markup
+
         result = self._request('sendMessage', data)
         if result and result.get('ok') and 'result' in result:
             return result['result'].get('message_id')
         return None
 
-    def edit_message_text(self, chat_id: str, message_id: int, text: str, parse_mode: str = 'Markdown', reply_markup: Optional[Dict] = None):
+    def edit_message_text(self, chat_id: str, message_id: int, text: str, parse_mode: Optional[str] = None, reply_markup: Optional[Dict] = None):
         data = {
             'chat_id': chat_id,
             'message_id': message_id,
-            'text': text,
-            'parse_mode': parse_mode,
-            'reply_markup': reply_markup
+            'text': text
         }
+        if parse_mode:
+            data['parse_mode'] = parse_mode
+        if reply_markup:
+            data['reply_markup'] = reply_markup
+
         self._request('editMessageText', data)
 
     def answer_callback_query(self, callback_query_id: str, text: str = ""):
@@ -90,4 +97,35 @@ class TelegramBot:
             'text': text
         }
         self._request('answerCallbackQuery', data)
-        
+
+    def send_document(self, chat_id: str, file_path: str) -> bool:
+        """Send a document file."""
+        url = f"{self.api_url}sendDocument"
+
+        try:
+            if not os.path.exists(file_path):
+                logger.error(f"❌ Fichier introuvable: {file_path}")
+                return False
+
+            with open(file_path, 'rb') as file:
+                files = {'document': (os.path.basename(file_path), file, 'application/zip')}
+                data = {'chat_id': chat_id}
+                logger.info(f"📤 Envoi du fichier {file_path}...")
+                response = requests.post(url, data=data, files=files, timeout=60)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('ok'):
+                        logger.info(f"✅ Fichier {file_path} envoyé avec succès")
+                        return True
+                    else:
+                        logger.error(f"❌ API a refusé: {result}")
+                        return False
+                else:
+                    logger.error(f"❌ HTTP {response.status_code}: {response.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"❌ Exception lors de l'envoi du fichier: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False

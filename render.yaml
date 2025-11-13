@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: telegram-bot-dame
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:10000 --workers 1 --timeout 120 main:application
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_CHAT_ID
+        sync: false
+      - key: TARGET_CHANNEL_ID
+        sync: false
+      - key: PREDICTION_CHANNEL_ID
+        sync: false
