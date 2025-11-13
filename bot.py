@@ -1,5 +1,5 @@
 """
-Implémentation de l'interaction avec l'API Telegram et de la boucle de Polling.
+Implémentation de l'interaction avec l'API Telegram (Webhook et requêtes).
 """
 import os
 import time
@@ -7,25 +7,25 @@ import requests
 import logging
 from typing import Dict, Optional, List
 from config import Config
-from handlers import process_update # Importe le gestionnaire d'updates
+from handlers import process_update # Non utilisé directement ici, mais le module est appelé
 
 logger = logging.getLogger(__name__)
 
-# La configuration sera chargée dans l'instance
+# La configuration sera chargée globalement ou passée à l'instance
 config = Config()
 
 class TelegramBot:
-    """Gère les requêtes API Telegram et la boucle de Polling."""
+    """Gère les requêtes API Telegram."""
 
     def __init__(self, token: str):
         self.api_url = f"https://api.telegram.org/bot{token}/"
-        self.last_update_id = 0
-
+        self.token = token
+        
     def _request(self, method: str, data: Optional[Dict] = None) -> Optional[Dict]:
         """Méthode générique pour envoyer une requête à l'API Telegram."""
         url = self.api_url + method
         try:
-            if not config.BOT_TOKEN:
+            if not self.token:
                  return None 
             response = requests.post(url, json=data, timeout=5) 
             response.raise_for_status()
@@ -34,6 +34,34 @@ class TelegramBot:
             logger.error(f"❌ Erreur API Telegram ({method}): {e}")
             return None
 
+    def set_webhook(self, webhook_url: str) -> bool:
+        """Configure l'URL du Webhook."""
+        # drop_pending_updates=True résout l'erreur 409 Conflict en supprimant l'ancien Webhook
+        data = {
+            'url': webhook_url,
+            'drop_pending_updates': True 
+        }
+        result = self._request('setWebhook', data)
+        if result and result.get('ok'):
+            logger.info(f"✅ Webhook configuré : {webhook_url}")
+            return True
+        else:
+            logger.error(f"❌ Échec de la configuration du Webhook. Réponse : {result}")
+            return False
+
+    def delete_webhook(self) -> bool:
+        """Supprime l'URL du Webhook (utile pour la réinitialisation ou le debug)."""
+        data = {'drop_pending_updates': True}
+        result = self._request('deleteWebhook', data)
+        if result and result.get('ok'):
+            logger.info("✅ Webhook supprimé avec succès.")
+            return True
+        else:
+            logger.error(f"❌ Échec de la suppression du Webhook. Réponse : {result}")
+            return False
+
+    # --- Méthodes API ---
+    
     def send_message(self, chat_id: str, text: str, parse_mode: str = 'Markdown', reply_markup: Optional[Dict] = None) -> Optional[int]:
         data = {
             'chat_id': chat_id,
@@ -62,35 +90,4 @@ class TelegramBot:
             'text': text
         }
         self._request('answerCallbackQuery', data)
-
-    def get_updates(self, timeout: int = 20) -> Optional[List[Dict]]:
-        data = {
-            'timeout': timeout,
-            'offset': self.last_update_id + 1
-        }
-        result = self._request('getUpdates', data)
-        if result and result.get('ok') and 'result' in result:
-            updates = result['result']
-            if updates:
-                self.last_update_id = updates[-1]['update_id']
-            return updates
-        return None
-
-    def start_polling(self):
-        """Boucle principale de Polling (méthode bloquante)."""
-        if not config.BOT_TOKEN or not config.TARGET_CHANNEL_ID or not config.PREDICTION_CHANNEL_ID:
-            logger.critical("Configuration manquante. Le Polling ne peut pas démarrer.")
-            return
-
-        logger.info("Bot Polling démarré.")
         
-        # S'assurer que le Webhook est désactivé avant de commencer le Polling
-        self._request('deleteWebhook', data={'drop_pending_updates': True})
-        
-        while True:
-            updates = self.get_updates()
-            if updates:
-                for update in updates:
-                    # Passe l'instance du bot au gestionnaire pour les réponses
-                    process_update(self, update) 
-            time.sleep(1) 
