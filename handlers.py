@@ -32,7 +32,7 @@ def handle_status_command(bot, chat_id):
     failure_count = card_predictor.consecutive_failures
     
     status_text = (
-        "**📊 Statut du Predictor (Polling) :**\n"
+        "**📊 Statut du Predictor (Webhook) :**\n"
         f"**Mode Intelligent :** {mode_status}\n"
         f"**Échecs consécutifs :** `{failure_count}/{card_predictor.MAX_FAILURES_BEFORE_INTELLIGENT_MODE}`\n"
         f"Dernière prédiction Dame (Q): `{card_predictor.last_dame_prediction if card_predictor.last_dame_prediction else 'Aucune'}`\n"
@@ -186,4 +186,4 @@ def process_update(bot, update: Dict):
         message_id = callback_query['message']['message_id']
         
         handle_callback_query(bot, callback_query_id, chat_id, message_id, data)
-  
+    
