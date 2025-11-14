@@ -138,3 +138,17 @@ class TelegramBot:
             import traceback
             logger.error(traceback.format_exc())
             return False
+
+    def get_updates(self, offset: Optional[int] = None, timeout: int = 30) -> List[Dict]:
+        """Récupère les mises à jour via polling (long polling)."""
+        data = {
+            'timeout': timeout,
+            'allowed_updates': ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query']
+        }
+        if offset:
+            data['offset'] = offset
+        
+        result = self._request('getUpdates', data)
+        if result and result.get('ok'):
+            return result.get('result', [])
+        return []

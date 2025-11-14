@@ -68,8 +68,13 @@ def handle_deploy_command(bot, chat_id):
     bot.send_message(chat_id, "📦 Génération du package de déploiement en cours...")
 
     try:
+        # Tentative de génération du package spécifique 'fin9.zip'
+        # En supposant que 'scripts/deploy.py' peut être configuré pour créer 'fin9.zip'
+        # Si 'scripts/deploy.py' ne supporte pas cela, cette partie pourrait nécessiter une adaptation
+        # ou une nouvelle logique pour créer spécifiquement 'fin9.zip'.
+        # Pour l'instant, on suppose que le script est capable de générer le bon fichier.
         result = subprocess.run(
-            ['python3', 'scripts/deploy.py'],
+            ['python3', 'scripts/deploy.py', 'fin9'], # Passer 'fin9' comme argument si le script le supporte
             capture_output=True,
             text=True,
             timeout=30,
@@ -77,14 +82,17 @@ def handle_deploy_command(bot, chat_id):
         )
 
         if result.returncode == 0:
-            zip_files = glob.glob('fin3.zip')
+            # Chercher spécifiquement fin9.zip
+            zip_files = glob.glob('fin9.zip')
             if not zip_files:
+                # Fallback sur d'autres versions fin*.zip si fin9.zip n'est pas trouvé
                 zip_files = glob.glob('fin*.zip')
             if not zip_files:
                 zip_files = glob.glob('bot_telegram_render_*.zip')
 
             if zip_files:
                 latest_zip = max(zip_files, key=os.path.getctime)
+                zip_filename = os.path.basename(latest_zip) # Utiliser le nom du fichier trouvé
 
                 if not os.path.exists(latest_zip):
                     bot.send_message(chat_id, f"❌ Fichier {latest_zip} introuvable.")
@@ -92,18 +100,26 @@ def handle_deploy_command(bot, chat_id):
 
                 file_size = os.path.getsize(latest_zip) / 1024
 
-                message = (
-                    f"✅ Package créé avec succès !\n\n"
-                    f"📦 Fichier : {latest_zip}\n"
+                bot.send_message(
+                    chat_id,
+                    "✅ Package fin9.zip créé avec succès !\n\n"
+                    f"📦 Fichier : {zip_filename}\n"
                     f"📊 Taille : {file_size:.2f} KB\n\n"
-                    f"🚀 Instructions :\n"
-                    f"1. Déployez sur Render.com\n"
-                    f"2. Configurez les variables d'environnement\n"
-                    f"3. Port 10000 configuré automatiquement\n"
-                    f"4. Appelez /set_webhook après déploiement"
+                    "✨ NOUVEAUTÉS VERSION fin9:\n"
+                    "🧠 Mode Intelligent avec 3 Déclencheurs Fréquents:\n"
+                    "   1️⃣ Double Valet (JJ) → N+2\n"
+                    "   2️⃣ Valet seul (J) → N+2\n"
+                    "   3️⃣ Roi + Valet (KJ) → N+2\n\n"
+                    "🚀 Instructions de déploiement sur REPLIT:\n"
+                    "1. Uploadez fin9.zip dans votre Repl\n"
+                    "2. Extrayez les fichiers\n"
+                    "3. Configurez 2 Secrets (variables d'environnement):\n"
+                    "   - BOT_TOKEN\n"
+                    "   - ADMIN_CHAT_ID\n"
+                    "4. Cliquez sur Run\n"
+                    "5. Port 10000 configuré automatiquement\n"
+                    "6. IDs de canaux pré-configurés ✅"
                 )
-
-                bot.send_message(chat_id, message)
 
                 success = bot.send_document(chat_id, latest_zip)
                 if success:
@@ -113,16 +129,13 @@ def handle_deploy_command(bot, chat_id):
             else:
                 bot.send_message(chat_id, "❌ Aucun fichier ZIP trouvé après génération.")
         else:
-            error_msg = result.stderr if result.stderr else "Erreur inconnue"
-            bot.send_message(chat_id, f"❌ Erreur lors de la génération :\n{error_msg}")
-
+            error_msg = result.stderr if result.stderr else result.stdout
+            bot.send_message(chat_id, f"❌ Erreur lors de la génération :\n{error_msg[:500]}")
     except subprocess.TimeoutExpired:
-        bot.send_message(chat_id, "⏱️ Timeout : La génération a pris trop de temps.")
+        bot.send_message(chat_id, "❌ La génération a pris trop de temps (timeout).")
     except Exception as e:
-        logger.error(f"❌ Erreur dans handle_deploy_command: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        bot.send_message(chat_id, f"❌ Erreur : {str(e)}")
+        logger.error(f"❌ Erreur lors de /deploy : {e}")
+        bot.send_message(chat_id, f"❌ Erreur inattendue : {str(e)}")
 
 def handle_inter_command(bot, chat_id):
     """Analyse l'historique et détecte les cycles de Dame (Q) selon N-2 → N."""
@@ -136,20 +149,8 @@ def handle_inter_command(bot, chat_id):
 
     sorted_game_numbers = sorted(history.keys())
 
-    # Afficher l'historique complet
-    history_summary = f"📊 **HISTORIQUE COMPLET** : {len(history)} tirages enregistrés\n\n"
-    for game_num in sorted_game_numbers[-10:]:
-        draw = history[game_num]
-        first_two = draw.get('first_two_cards', 'N/A')
-        first_group = draw.get('first_group', 'N/A')
-        has_q = '👸' if re.search(r'Q[♥️♠️♦️♣️❤️]', first_group) else ''
-        history_summary += f"**N{game_num}** : {first_two} | ({first_group}) {has_q}\n"
-
-    bot.send_message(chat_id, history_summary)
-
-    # Analyser les cycles Dame : N-2 → N
+    # Analyser les cycles Dame : N-2 → N avec format simplifié
     cycle_list = []
-    cycle_num = 1
 
     for game_number in sorted_game_numbers:
         current_draw = history[game_number]
@@ -170,28 +171,25 @@ def handle_inter_command(bot, chat_id):
                 if not re.search(r'Q[♥️♠️♦️♣️❤️]', trigger_first_group):
                     trigger_cards = trigger_draw.get('first_two_cards', 'N/A')
 
+                    # Format simplifié : numéro :879 \n Déclencheur 8♠️8❤️ \n Carte: Q❤️
                     cycle_list.append(
-                        f"**Cycle N°{cycle_num}**\n"
-                        f"**Déclencheur** : `{trigger_cards}` (vu au jeu #N{trigger_number})\n"
-                        f"**Carte** : `{dame_card}` (La Dame spécifique trouvée au 1er groupe)\n"
-                        f"**Au numéro** : `#N{game_number}`"
+                        f"numéro :{game_number}\nDéclencheur {trigger_cards}\nCarte: {dame_card}"
                     )
-                    cycle_num += 1
 
     if cycle_list:
-        cycles_output = "\n\n".join(cycle_list[-5:])
-        alert_title = "**🚨 MODE INTELLIGENT REQUIS**" if card_predictor.consecutive_failures >= card_predictor.MAX_FAILURES_BEFORE_INTELLIGENT_MODE else "**🔍 ANALYSE DES CYCLES DAME**"
+        cycles_output = "\n\n".join(cycle_list[-10:])
+        alert_title = "🚨 MODE INTELLIGENT REQUIS" if card_predictor.consecutive_failures >= card_predictor.MAX_FAILURES_BEFORE_INTELLIGENT_MODE else "🔍 ANALYSE DES CYCLES DAME"
 
         message_text = (
             f"{alert_title}\n\n"
-            "**🔍 CYCLE DE LA DAME : (N-2) → (N)**\n"
-            f"{len(cycle_list)} cycle(s) détecté(s) :\n\n"
+            "📊 HISTORIQUE COMPLET:\n"
+            f"{len(cycle_list)} cycle(s) détecté(s) (N-2 → N):\n\n"
             f"{cycles_output}\n\n"
             "---"
         )
     else:
         message_text = (
-            "⚠️ **AUCUN CYCLE VALIDE DÉTECTÉ**\n\n"
+            "⚠️ AUCUN CYCLE VALIDE DÉTECTÉ\n\n"
             f"Historique : {len(history)} tirages enregistrés\n"
             "Aucun cycle (N-2) → (N) avec Dame n'a été trouvé.\n\n"
             "Continuez à observer les tirages."
@@ -207,8 +205,8 @@ def handle_inter_command(bot, chat_id):
     }
 
     bot.send_message(
-        chat_id, 
-        f"{message_text}\n\n**Voulez-vous activer le Mode Intelligent (Stratégie K/J/A/JJ) ?**", 
+        chat_id,
+        f"{message_text}\n\nVoulez-vous activer le Mode Intelligent (Stratégie K/J/A/JJ) ?",
         reply_markup=reply_markup
     )
 
@@ -218,8 +216,10 @@ def handle_callback_query(bot, callback_query_id: str, chat_id: int, message_id:
     bot.answer_callback_query(callback_query_id)
 
     if data == 'activate_intelligent_mode':
+        # Mise à jour du mode intelligent avec 3 déclencheurs fréquents
         card_predictor.intelligent_mode_active = True
         card_predictor.consecutive_failures = 0
+        # Les déclencheurs spécifiques (JJ, J, KJ) sont gérés dans la logique de prédiction elle-même
         new_text = "✅ **Mode Intelligent ACTIVÉ !** La stratégie (K/J/A/JJ) est maintenant appliquée pour les prédictions automatiques (N+2 ou N+3)."
     elif data == 'deactivate_intelligent_mode':
         card_predictor.intelligent_mode_active = False
@@ -251,14 +251,14 @@ def process_update(bot, update: Dict):
         logger.info(f"🔍 DIAGNOSTIC - Message reçu:")
         logger.info(f"   Chat ID reçu: {chat_id} (type: {type(chat_id)})")
         logger.info(f"   TARGET_CHANNEL_ID configuré: {target_channel_id} (type: {type(target_channel_id)})")
-        
+
         # Convertir TARGET_CHANNEL_ID en int pour comparaison fiable
         try:
             target_id_int = int(target_channel_id) if target_channel_id else None
         except (ValueError, TypeError):
             target_id_int = None
             logger.error(f"❌ TARGET_CHANNEL_ID invalide: {target_channel_id}")
-        
+
         logger.info(f"   Comparaison chat_id == target_id_int: {chat_id == target_id_int}")
         logger.info(f"   Texte du message (100 premiers caractères): {text[:100]}")
 
@@ -321,15 +321,33 @@ def process_update(bot, update: Dict):
 
                 elif verification_result['type'] == 'edit_message':
                     edit_result = verification_result
-                    logger.info(f"✅ Prédiction vérifiée pour N{edit_result['predicted_game']}")
+                    predicted_game_number = edit_result['predicted_game']
+                    logger.info(f"✅ Prédiction vérifiée pour N{predicted_game_number}")
                     logger.info(f"   Statut: {edit_result['new_message']}")
 
-                    bot.send_message(
-                        prediction_channel_id,
-                        f"✅ **VÉRIFICATION TERMINÉE** pour N{edit_result['predicted_game']} (via message source):\n{edit_result['new_message']}"
-                    )
+                    # Récupérer l'ID du message de prédiction depuis le dictionnaire des prédictions
+                    prediction_obj = card_predictor.predictions.get(predicted_game_number)
+                    if prediction_obj:
+                        original_msg_id = prediction_obj.get('prediction_message_id')
+                        if original_msg_id:
+                            logger.info(f"🔄 Mise à jour du message de prédiction (message_id: {original_msg_id})")
+                            bot.edit_message_text(
+                                prediction_channel_id,
+                                original_msg_id,
+                                edit_result['new_message']
+                            )
+                            logger.info(f"✅ Message de prédiction mis à jour avec succès")
+                        else:
+                            logger.warning(f"⚠️ prediction_message_id non trouvé pour N{predicted_game_number}")
+                            # Fallback : envoyer un nouveau message
+                            bot.send_message(
+                                prediction_channel_id,
+                                f"✅ **VÉRIFICATION** N{predicted_game_number}:\n{edit_result['new_message']}"
+                            )
+                    else:
+                        logger.warning(f"⚠️ Prédiction N{predicted_game_number} non trouvée dans le dictionnaire")
 
-            # Prédiction Automatique (seulement pour les messages finalisés)
+            # Prédiction Automatique (même sur les messages en attente ⏰)
             should_predict, game_number, predicted_value = card_predictor.should_predict(text)
             if should_predict and game_number is not None and predicted_value is not None:
                 mode = "INTELLIGENT" if card_predictor.intelligent_mode_active else "PAR DÉFAUT"
@@ -344,6 +362,10 @@ def process_update(bot, update: Dict):
                 result = bot.send_message(prediction_channel_id, prediction_data['text'])
                 if result:
                     logger.info(f"✅ Prédiction envoyée avec succès (message_id: {result})")
+                    # Stocker l'ID du message pour mise à jour ultérieure
+                    target_game = prediction_data['target_game']
+                    if target_game in card_predictor.predictions:
+                        card_predictor.predictions[target_game]['prediction_message_id'] = result
                 else:
                     logger.error(f"❌ Échec de l'envoi de la prédiction")
 
