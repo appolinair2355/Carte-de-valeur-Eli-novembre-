@@ -6,8 +6,6 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python main_polling.py
     envVars:
-      - key: PORT
-        value: 10000
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_CHAT_ID
