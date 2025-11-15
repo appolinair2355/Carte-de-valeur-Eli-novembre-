@@ -11,9 +11,9 @@ import requests
 from flask import Flask, request, jsonify
 from config import Config
 from bot import TelegramBot
-# --- CORRECTION ICI ---
+# --- CORRECTION DE L'IMPORTATION CRITIQUE ---
 import handlers # Importez le module complet
-from handlers import handle_update # Importez la fonction de gestion
+from handlers import handle_update # Importez la bonne fonction 'handle_update'
 
 logging.basicConfig(
     level=logging.INFO, 
@@ -77,16 +77,15 @@ def webhook():
     update = request.get_json() 
     
     if update:
-        # LOG BRUT AJOUTÉ POUR CONFIRMER LA RÉCEPTION
+        # LOG BRUT AJOUTÉ POUR CONFIRMER LA RÉCEPTION (avant le traitement)
         update_type = list(update.keys())[0] if update else "VIDE"
         logger.info(f"🚨 UPDATE REÇU (Type): {update_type}") 
         
         try:
             # Appel de la fonction de gestion des mises à jour corrigée
-            handle_update(bot, update) 
+            handle_update(bot, update) # <-- APPEL DE LA BONNE FONCTION
         except Exception as e:
             logger.error(f"❌ Erreur critique lors du traitement de l'update: {e}")
-            # Vous verrez cette trace d'erreur si le problème persiste
             import traceback
             logger.error(traceback.format_exc()) 
             
@@ -95,7 +94,7 @@ def webhook():
 
 def run_setup(webhook_url):
     """Effectue les actions de configuration après le démarrage."""
-    # ... (Le reste du code de run_setup est inchangé, mais assurez-vous qu'il exécute set_webhook)
+    
     if bot.set_webhook(webhook_url):
         logger.info(f"✅ Webhook configuré avec succès")
         
@@ -108,6 +107,7 @@ def run_setup(webhook_url):
                 f"📤 Canal Prédiction : {config.PREDICTION_CHANNEL_ID}\\n\\n"
                 "✅ Configuration terminée - Le bot est prêt !"
             )
+            # Ajout du parse_mode='Markdown' pour que le message soit bien formaté
             bot.send_message(config.ADMIN_CHAT_ID, test_message, parse_mode='Markdown')
             logger.info("✅ Message de test envoyé à l'admin")
         
@@ -117,13 +117,16 @@ def run_setup(webhook_url):
         return False
 
 if __name__ == '__main__':
-    port = config.PORT # Utilisation du port dynamique
+    port = config.PORT
     
     logger.info("=" * 60)
     logger.info("🤖 BOT TELEGRAM DAME PRÉDICTION - MODE WEBHOOK")
     logger.info("=" * 60)
-    
-    # Le reste du code de logging initial et de run_setup doit être conservé ici...
+    logger.info(f"✅ Bot Token configuré")
+    logger.info(f"✅ Admin Chat ID: {config.ADMIN_CHAT_ID}")
+    logger.info(f"✅ Canal Source: {config.TARGET_CHANNEL_ID}")
+    logger.info(f"✅ Canal Prédiction: {config.PREDICTION_CHANNEL_ID}")
+    logger.info(f"✅ Port : {port}")
     
     # Lance le setup après un court délai pour que Render attribue l'URL externe
     time.sleep(3) 
@@ -133,4 +136,5 @@ if __name__ == '__main__':
         run_setup(f"https://{webhook_url}/webhook")
         
     app.run(host='0.0.0.0', port=port)
-                       
+
+
