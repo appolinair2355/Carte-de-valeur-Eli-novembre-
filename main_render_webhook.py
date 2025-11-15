@@ -11,8 +11,8 @@ import requests
 from flask import Flask, request, jsonify
 from config import Config
 from bot import TelegramBot
-# --- CORRECTION DE L'IMPORTATION CRITIQUE ---
-import handlers # Importez le module complet
+# --- CORRECTION DE L'IMPORTATION (handle_update est la bonne fonction) ---
+import handlers 
 from handlers import handle_update # Importez la bonne fonction 'handle_update'
 
 logging.basicConfig(
@@ -74,7 +74,8 @@ def set_webhook():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     """Endpoint principal pour la réception des mises à jour Telegram"""
-    update = request.get_json() 
+    # --- CORRECTION DE LA RÉCUPÉRATION DU JSON (Force la lecture du JSON) ---
+    update = request.get_json(silent=True, force=True) 
     
     if update:
         # LOG BRUT AJOUTÉ POUR CONFIRMER LA RÉCEPTION (avant le traitement)
@@ -107,7 +108,6 @@ def run_setup(webhook_url):
                 f"📤 Canal Prédiction : {config.PREDICTION_CHANNEL_ID}\\n\\n"
                 "✅ Configuration terminée - Le bot est prêt !"
             )
-            # Ajout du parse_mode='Markdown' pour que le message soit bien formaté
             bot.send_message(config.ADMIN_CHAT_ID, test_message, parse_mode='Markdown')
             logger.info("✅ Message de test envoyé à l'admin")
         
@@ -136,5 +136,6 @@ if __name__ == '__main__':
         run_setup(f"https://{webhook_url}/webhook")
         
     app.run(host='0.0.0.0', port=port)
+
 
 
