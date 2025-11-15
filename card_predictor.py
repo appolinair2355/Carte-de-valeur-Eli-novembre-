@@ -110,7 +110,7 @@ class CardPredictor:
 
     def check_dame_rule(self, signals: Dict[str, bool], first_group_content: str) -> Optional[str]:
         """Applique la Stratégie de Mise Dame (Q) : détermine la règle à appliquer.
-        Mode Intelligent : utilise 3 déclencheurs fréquents les plus performants.
+        Mode Intelligent : utilise 2 déclencheurs fréquents les plus performants.
         """
 
         J, K, A = signals['J'], signals['K'], signals['A']
@@ -122,10 +122,6 @@ class CardPredictor:
         # DÉCLENCHEUR 2 : Valet seul (J sans K ni A) → N+2
         if J and not K and not A:
             return "Q_INTELLIGENT_J" 
-            
-        # DÉCLENCHEUR 3 : Roi + Valet (KJ) → N+2
-        if K and J:
-            return "Q_INTELLIGENT_KJ"
 
         return None 
 
@@ -139,7 +135,7 @@ class CardPredictor:
 
         if not first_group: return False, None, None
 
-        # MODE INTELLIGENT ACTIF : Utiliser les règles avancées K/J/A
+        # MODE INTELLIGENT ACTIF : Utiliser 2 déclencheurs fréquents
         if self.intelligent_mode_active:
             dame_prediction = self.check_dame_rule(signals, first_group)
 
@@ -152,7 +148,7 @@ class CardPredictor:
                     self.last_dame_prediction = predicted_value
                     return True, game_number, predicted_value
 
-        # MODE PAR DÉFAUT (INACTIF) : 3 règles spécifiques uniquement
+        # MODE PAR DÉFAUT : 2 règles uniquement
         else:
             should_predict_default = False
             predicted_rule = None
@@ -165,23 +161,18 @@ class CardPredictor:
             if second_group:
                 has_figures_in_second_group = bool(re.search(r'[AKQJ]', second_group, re.IGNORECASE))
 
-            # Règle 1: Deux J dans le premier groupe → Q au N+2
+            # RÈGLE 1: Deux J dans le premier groupe → Q au N+2
             if re.search(r'J.*J', first_group, re.IGNORECASE):
                 should_predict_default = True
                 predicted_rule = "Q_DEFAULT_JJ"
             
-            # Règle 2: Un seul J dans le premier groupe ET absence de A,K,Q,J dans le deuxième groupe
+            # RÈGLE 2: Un seul J dans le premier groupe ET absence de A,K,Q,J dans le deuxième groupe
             elif re.search(r'\bJ\b', first_group, re.IGNORECASE) and not has_figures_in_second_group:
                 # Vérifier qu'il n'y a qu'un seul J dans le premier groupe
                 j_count = len(re.findall(r'\bJ\b', first_group, re.IGNORECASE))
                 if j_count == 1:
                     should_predict_default = True
                     predicted_rule = "Q_DEFAULT_J_CLEAN"
-            
-            # Règle 3: Un K dans le premier groupe ET absence de A,K,J,Q dans le deuxième groupe
-            elif re.search(r'\bK\b', first_group, re.IGNORECASE) and not has_figures_in_second_group:
-                should_predict_default = True
-                predicted_rule = "Q_DEFAULT_K_CLEAN"
 
             if should_predict_default and predicted_rule:
                 predicted_value = f"Q:{predicted_rule}"
@@ -198,7 +189,7 @@ class CardPredictor:
         """Crée l'objet de prédiction et génère le message."""
         dame_rule = predicted_value_or_costume.split(':')[1]
 
-        # Règles du Mode Intelligent - 3 Déclencheurs Fréquents
+        # Règles du Mode Intelligent - 2 Déclencheurs Fréquents
         if dame_rule == "Q_INTELLIGENT_JJ":
              target_game = game_number + 2  # Double Valet → N+2
              prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
@@ -206,22 +197,14 @@ class CardPredictor:
         elif dame_rule == "Q_INTELLIGENT_J":
              target_game = game_number + 2  # Valet seul → N+2
              prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
-             
-        elif dame_rule == "Q_INTELLIGENT_KJ":
-             target_game = game_number + 2  # Roi + Valet → N+2
-             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
 
-        # Règles par Défaut (Mode INACTIF) - 3 règles uniquement
+        # Règles par Défaut - 2 règles uniquement
         elif dame_rule == "Q_DEFAULT_JJ":
              target_game = game_number + 2  # Deux J dans le premier groupe → N+2
              prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
 
         elif dame_rule == "Q_DEFAULT_J_CLEAN":
              target_game = game_number + 2  # Un J dans 1er groupe, pas de figures dans 2ème → N+2
-             prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
-
-        elif dame_rule == "Q_DEFAULT_K_CLEAN":
-             target_game = game_number + 2  # Un K dans 1er groupe, pas de figures dans 2ème → N+2
              prediction_text = f"🎯{target_game}🎯: Dame (Q) statut :⏳"
 
         else:

@@ -58,23 +58,17 @@ def handle_defaut_command(bot, chat_id):
     bot.send_message(chat_id, "✅ Mode Intelligent DÉSACTIVÉ. Les prédictions automatiques sont maintenant basées sur la règle initiale (Veille).")
 
 def handle_deploy_command(bot, chat_id):
-    """Génère le package de déploiement et l'envoie."""
+    """Génère le package fin16.zip de déploiement."""
     import subprocess
-    import glob
-    import requests
 
     logger.info(f"📦 Commande /deploy reçue de chat_id: {chat_id}")
 
-    bot.send_message(chat_id, "📦 Génération du package de déploiement en cours...")
+    bot.send_message(chat_id, "📦 Génération du package fin16.zip en cours...")
 
     try:
-        # Tentative de génération du package spécifique 'fin9.zip'
-        # En supposant que 'scripts/deploy.py' peut être configuré pour créer 'fin9.zip'
-        # Si 'scripts/deploy.py' ne supporte pas cela, cette partie pourrait nécessiter une adaptation
-        # ou une nouvelle logique pour créer spécifiquement 'fin9.zip'.
-        # Pour l'instant, on suppose que le script est capable de générer le bon fichier.
+        # Générer le package fin16
         result = subprocess.run(
-            ['python3', 'scripts/deploy.py', 'fin9'], # Passer 'fin9' comme argument si le script le supporte
+            ['python3', 'scripts/deploy_fin16.py'],
             capture_output=True,
             text=True,
             timeout=30,
@@ -82,54 +76,37 @@ def handle_deploy_command(bot, chat_id):
         )
 
         if result.returncode == 0:
-            # Chercher spécifiquement fin9.zip
-            zip_files = glob.glob('fin9.zip')
-            if not zip_files:
-                # Fallback sur d'autres versions fin*.zip si fin9.zip n'est pas trouvé
-                zip_files = glob.glob('fin*.zip')
-            if not zip_files:
-                zip_files = glob.glob('bot_telegram_render_*.zip')
+            # Envoyer le message d'information
+            bot.send_message(
+                chat_id,
+                "✅ Package fin16.zip créé avec succès !\n\n"
+                "📦 CARACTÉRISTIQUES :\n"
+                "   ✅ 2 règles de prédiction par défaut\n"
+                "   ✅ 2 déclencheurs intelligents\n"
+                "   ✅ Gestion améliorée des messages ⏰\n"
+                "   ✅ Logs détaillés\n\n"
+                "📥 Envoi du fichier..."
+            )
 
-            if zip_files:
-                latest_zip = max(zip_files, key=os.path.getctime)
-                zip_filename = os.path.basename(latest_zip) # Utiliser le nom du fichier trouvé
-
-                if not os.path.exists(latest_zip):
-                    bot.send_message(chat_id, f"❌ Fichier {latest_zip} introuvable.")
-                    return
-
-                file_size = os.path.getsize(latest_zip) / 1024
-
-                bot.send_message(
-                    chat_id,
-                    "✅ Package fin9.zip créé avec succès !\n\n"
-                    f"📦 Fichier : {zip_filename}\n"
-                    f"📊 Taille : {file_size:.2f} KB\n\n"
-                    "✨ NOUVEAUTÉS VERSION fin9:\n"
-                    "🧠 Mode Intelligent avec 3 Déclencheurs Fréquents:\n"
-                    "   1️⃣ Double Valet (JJ) → N+2\n"
-                    "   2️⃣ Valet seul (J) → N+2\n"
-                    "   3️⃣ Roi + Valet (KJ) → N+2\n\n"
-                    "🚀 Instructions de déploiement sur REPLIT:\n"
-                    "1. Uploadez fin9.zip dans votre Repl\n"
-                    "2. Extrayez les fichiers\n"
-                    "3. Configurez 2 Secrets (variables d'environnement):\n"
-                    "   - BOT_TOKEN\n"
-                    "   - ADMIN_CHAT_ID\n"
-                    "4. Cliquez sur Run\n"
-                    "5. Port 10000 configuré automatiquement\n"
-                    "6. IDs de canaux pré-configurés ✅"
-                )
-
-                success = bot.send_document(chat_id, latest_zip)
+            # Envoyer le fichier fin16.zip
+            if os.path.exists('fin16.zip'):
+                file_size = os.path.getsize('fin16.zip') / 1024
+                success = bot.send_document(chat_id, 'fin16.zip')
                 if success:
-                    bot.send_message(chat_id, f"✅ Fichier {latest_zip} envoyé avec succès !")
+                    bot.send_message(
+                        chat_id, 
+                        f"✅ fin16.zip envoyé ({file_size:.2f} KB)\n\n"
+                        "🚀 DÉPLOIEMENT :\n"
+                        "   • Compatible Replit et Render.com\n"
+                        "   • Port auto-détecté\n"
+                        "   • Configuration via variables d'environnement"
+                    )
                 else:
-                    bot.send_message(chat_id, f"⚠️ Erreur lors de l'envoi. Téléchargez {latest_zip} manuellement.")
+                    bot.send_message(chat_id, "⚠️ Erreur lors de l'envoi de fin16.zip")
             else:
-                bot.send_message(chat_id, "❌ Aucun fichier ZIP trouvé après génération.")
+                bot.send_message(chat_id, "⚠️ Fichier fin16.zip introuvable")
         else:
-            error_msg = result.stderr if result.stderr else result.stdout
+            error_msg = result.stderr or "Erreur inconnue"
             bot.send_message(chat_id, f"❌ Erreur lors de la génération :\n{error_msg[:500]}")
     except subprocess.TimeoutExpired:
         bot.send_message(chat_id, "❌ La génération a pris trop de temps (timeout).")
@@ -138,7 +115,7 @@ def handle_deploy_command(bot, chat_id):
         bot.send_message(chat_id, f"❌ Erreur inattendue : {str(e)}")
 
 def handle_inter_command(bot, chat_id):
-    """Analyse l'historique et détecte les cycles de Dame (Q) selon N-2 → N."""
+    """Analyse l'historique et détecte les 2 déclencheurs fréquents de Dame (Q) selon N-2 → N."""
     logger.info(f"🔍 Commande /inter reçue de chat_id: {chat_id}")
 
     history = card_predictor.draw_history
@@ -149,7 +126,7 @@ def handle_inter_command(bot, chat_id):
 
     sorted_game_numbers = sorted(history.keys())
 
-    # Analyser les cycles Dame : N-2 → N avec format simplifié
+    # Analyser les cycles Dame : N-2 → N avec 2 déclencheurs fréquents
     cycle_list = []
 
     for game_number in sorted_game_numbers:
@@ -206,7 +183,7 @@ def handle_inter_command(bot, chat_id):
 
     bot.send_message(
         chat_id,
-        f"{message_text}\n\nVoulez-vous activer le Mode Intelligent (Stratégie K/J/A/JJ) ?",
+        f"{message_text}\n\nVoulez-vous activer le Mode Intelligent (2 déclencheurs fréquents) ?",
         reply_markup=reply_markup
     )
 
@@ -216,11 +193,11 @@ def handle_callback_query(bot, callback_query_id: str, chat_id: int, message_id:
     bot.answer_callback_query(callback_query_id)
 
     if data == 'activate_intelligent_mode':
-        # Mise à jour du mode intelligent avec 3 déclencheurs fréquents
+        # Mise à jour du mode intelligent avec 2 déclencheurs fréquents
         card_predictor.intelligent_mode_active = True
         card_predictor.consecutive_failures = 0
-        # Les déclencheurs spécifiques (JJ, J, KJ) sont gérés dans la logique de prédiction elle-même
-        new_text = "✅ **Mode Intelligent ACTIVÉ !** La stratégie (K/J/A/JJ) est maintenant appliquée pour les prédictions automatiques (N+2 ou N+3)."
+        # Les déclencheurs spécifiques (JJ, J) sont gérés dans la logique de prédiction elle-même
+        new_text = "✅ **Mode Intelligent ACTIVÉ !** Les 2 déclencheurs fréquents sont maintenant appliqués pour les prédictions automatiques (N+2)."
     elif data == 'deactivate_intelligent_mode':
         card_predictor.intelligent_mode_active = False
         new_text = "❌ **Mode Intelligent DÉSACTIVÉ.** Les prédictions restent en mode Veille."
@@ -279,12 +256,13 @@ def process_update(bot, update: Dict):
                         'text': text,
                         'message_id': message_id
                     }
-                    logger.info(f"⏰ Message en attente mémorisé pour N{game_number} - En attente de finalisation (✅ ou 🔰)")
+                    logger.info(f"⏰ Message en attente mémorisé pour N{game_number} - Attente que ⏰ disparaisse")
+                # Ne pas traiter tant que ⏰ est présent
                 return
 
             # Vérifier si ce message était en attente et vient d'être finalisé
             if game_number and game_number in card_predictor.pending_messages:
-                logger.info(f"✅ Message N{game_number} finalisé (était en attente ⏰)")
+                logger.info(f"✅ Message N{game_number} finalisé - ⏰ a disparu, traitement en cours")
                 # Supprimer de la liste d'attente
                 del card_predictor.pending_messages[game_number]
 
@@ -369,20 +347,28 @@ def process_update(bot, update: Dict):
                 else:
                     logger.error(f"❌ Échec de l'envoi de la prédiction")
 
-        # 2. Traitement des commandes utilisateur (hors canaux source/ prédiction)
-        elif text.startswith('/') and str(chat_id) != prediction_channel_id:
-            if text.startswith('/start'):
-                handle_start_command(bot, chat_id)
-            elif text.startswith('/help'):
-                handle_help_command(bot, chat_id)
-            elif text.startswith('/status'):
-                handle_status_command(bot, chat_id)
-            elif text.startswith('/inter'):
-                handle_inter_command(bot, chat_id)
-            elif text.startswith('/defaut'):
-                handle_defaut_command(bot, chat_id)
-            elif text.startswith('/deploy'):
-                handle_deploy_command(bot, chat_id)
+        # 2. Traitement des commandes utilisateur (messages privés et groupes)
+        elif text.startswith('/'):
+            chat_type = message_data.get('chat', {}).get('type', '')
+            logger.info(f"💬 Commande détectée : {text[:50]} depuis chat_type: {chat_type}, chat_id: {chat_id}")
+            
+            # Traiter les commandes seulement si c'est un message privé ou d'un admin
+            if chat_type == 'private' or str(chat_id) == admin_chat_id:
+                logger.info(f"✅ Traitement de la commande autorisé (private ou admin)")
+                if text.startswith('/start'):
+                    handle_start_command(bot, chat_id)
+                elif text.startswith('/help'):
+                    handle_help_command(bot, chat_id)
+                elif text.startswith('/status'):
+                    handle_status_command(bot, chat_id)
+                elif text.startswith('/inter'):
+                    handle_inter_command(bot, chat_id)
+                elif text.startswith('/defaut'):
+                    handle_defaut_command(bot, chat_id)
+                elif text.startswith('/deploy'):
+                    handle_deploy_command(bot, chat_id)
+            else:
+                logger.info(f"⏩ Commande ignorée (pas un message privé ni admin)")
 
 
     # Traitement des clics de boutons inline
