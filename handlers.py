@@ -58,17 +58,17 @@ def handle_defaut_command(bot, chat_id):
     bot.send_message(chat_id, "✅ Mode Intelligent DÉSACTIVÉ. Les prédictions automatiques sont maintenant basées sur la règle initiale (Veille).")
 
 def handle_deploy_command(bot, chat_id):
-    """Génère le package final189.zip de déploiement pour Render.com."""
+    """Génère le package re300.zip de déploiement pour Render.com (Mode Webhook)."""
     import subprocess
 
     logger.info(f"📦 Commande /deploy reçue de chat_id: {chat_id}")
 
-    bot.send_message(chat_id, "📦 Génération du package final189.zip en cours...")
+    bot.send_message(chat_id, "📦 Génération du package re300.zip en cours...")
 
     try:
-        # Générer le package final189
+        # Générer le package re300
         result = subprocess.run(
-            ['python3', 'scripts/deploy_final189.py'],
+            ['python3', 'scripts/deploy_re300.py'],
             capture_output=True,
             text=True,
             timeout=30,
@@ -79,40 +79,45 @@ def handle_deploy_command(bot, chat_id):
             # Envoyer le message d'information
             bot.send_message(
                 chat_id,
-                "✅ Package final189.zip créé avec succès !\n\n"
+                "✅ Package re300.zip créé avec succès !\n\n"
                 "📦 CARACTÉRISTIQUES :\n"
-                "   ✅ Mode POLLING PUR (pas de Flask/Webhook)\n"
+                "   ✅ Mode WEBHOOK avec Flask\n"
+                "   ✅ 📨 Notification automatique après déploiement\n"
+                "   ✅ 📨 Message de test envoyé à votre Telegram\n"
+                "   ✅ Configuration webhook automatique\n"
                 "   ✅ 4 variables d'environnement seulement\n"
-                "   ✅ Compatible Render.com à 100%\n"
-                "   ✅ 2 règles de prédiction + 2 déclencheurs intelligents\n"
-                "   ✅ Gestion messages ⏰ + Logs détaillés\n\n"
+                "   ✅ 2 règles de prédiction + 2 déclencheurs intelligents\n\n"
                 "📥 Envoi du fichier..."
             )
 
-            # Envoyer le fichier final189.zip
-            if os.path.exists('final189.zip'):
-                file_size = os.path.getsize('final189.zip') / 1024
-                success = bot.send_document(chat_id, 'final189.zip')
+            # Envoyer le fichier re300.zip
+            if os.path.exists('re300.zip'):
+                file_size = os.path.getsize('re300.zip') / 1024
+                success = bot.send_document(chat_id, 're300.zip')
                 if success:
                     bot.send_message(
                         chat_id, 
-                        f"✅ final189.zip envoyé ({file_size:.2f} KB)\n\n"
+                        f"✅ re300.zip envoyé ({file_size:.2f} KB)\n\n"
                         "🚀 DÉPLOIEMENT SUR RENDER.COM :\n\n"
                         "1️⃣ Uploadez TOUS les fichiers sur GitHub\n"
-                        "2️⃣ Créez un Web Service sur Render.com\n"
-                        "3️⃣ Configurez 4 variables d'environnement :\n"
+                        "2️⃣ RENOMMEZ :\n"
+                        "   • Procfile_render → Procfile\n"
+                        "   • render_re300.yaml → render.yaml\n"
+                        "   • requirements_render.txt → requirements.txt\n"
+                        "3️⃣ Créez un Web Service sur Render.com\n"
+                        "4️⃣ Configurez 4 variables d'environnement :\n"
                         "   • BOT_TOKEN\n"
                         "   • ADMIN_CHAT_ID\n"
                         "   • TARGET_CHANNEL_ID\n"
                         "   • PREDICTION_CHANNEL_ID\n"
-                        "4️⃣ Cliquez sur 'Create Web Service'\n"
-                        "5️⃣ ✅ Le bot démarrera automatiquement !\n\n"
-                        "📖 Consultez README_RENDER.md pour les détails"
+                        "5️⃣ Cliquez sur 'Create Web Service'\n"
+                        "6️⃣ 📨 Vous recevrez un message de test automatiquement !\n\n"
+                        "📖 Consultez README_RENDER_RE300.md pour les détails"
                     )
                 else:
-                    bot.send_message(chat_id, "⚠️ Erreur lors de l'envoi de final189.zip")
+                    bot.send_message(chat_id, "⚠️ Erreur lors de l'envoi de re300.zip")
             else:
-                bot.send_message(chat_id, "⚠️ Fichier final189.zip introuvable")
+                bot.send_message(chat_id, "⚠️ Fichier re300.zip introuvable")
         else:
             error_msg = result.stderr or "Erreur inconnue"
             bot.send_message(chat_id, f"❌ Erreur lors de la génération :\n{error_msg[:500]}")
@@ -359,7 +364,7 @@ def process_update(bot, update: Dict):
         elif text.startswith('/'):
             chat_type = message_data.get('chat', {}).get('type', '')
             logger.info(f"💬 Commande détectée : {text[:50]} depuis chat_type: {chat_type}, chat_id: {chat_id}")
-            
+
             # Traiter les commandes seulement si c'est un message privé ou d'un admin
             if chat_type == 'private' or str(chat_id) == admin_chat_id:
                 logger.info(f"✅ Traitement de la commande autorisé (private ou admin)")
