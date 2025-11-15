@@ -5,39 +5,39 @@ logger = logging.getLogger(__name__)
 
 class Config:
     """
-    Configuration du Bot, optimisée pour le mode Polling.
+    Configuration du Bot, avec IDs de canaux pré-configurés pour la stratégie DAME.
     """
     def __init__(self):
-        # Jeton d'API (Nécessaire)
-        self.BOT_TOKEN = os.getenv("BOT_TOKEN")
+        # --- IDs de Canaux par défaut (Pré-Configurations) ---
+        # Ces valeurs seront utilisées si les variables d'environnement (os.getenv) ne sont pas définies.
         
-        # IDs des chats/canaux (Nécessaires au fonctionnement de la logique)
-        # Note: Les valeurs par défaut ne sont utilisées qu'en l'absence de variables d'environnement.
-        self.ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
-        self.TARGET_CHANNEL_ID = os.getenv("TARGET_CHANNEL_ID", "-1003424179389")
-        self.PREDICTION_CHANNEL_ID = os.getenv("PREDICTION_CHANNEL_ID", "-1003362820311")
+        # TARGET_CHANNEL_ID : Le canal où les tirages bruts sont postés (Canal Source)
+        DEFAULT_TARGET_CHANNEL_ID = "-1003424179389"
+        
+        # PREDICTION_CHANNEL_ID : Le canal où le bot envoie ses analyses et prédictions
+        DEFAULT_PREDICTION_CHANNEL_ID = "-1003362820311"
 
-        # Variables Webhook/Serveur (Gardées pour la compatibilité, mais généralement non utilisées en Polling)
+        # --- Variables Critiques du Bot ---
+        self.BOT_TOKEN = os.getenv("BOT_TOKEN")
+        self.ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID") # Votre ID personnel pour les commandes admin
+
+        # --- Chargement des IDs de Canaux ---
+        # Utilise la variable d'environnement si elle existe, sinon utilise la valeur par défaut
+        self.TARGET_CHANNEL_ID = os.getenv("TARGET_CHANNEL_ID", DEFAULT_TARGET_CHANNEL_ID)
+        self.PREDICTION_CHANNEL_ID = os.getenv("PREDICTION_CHANNEL_ID", DEFAULT_PREDICTION_CHANNEL_ID)
+
+        # --- Variables Webhook/Serveur (Compatibilité) ---
+        # Les variables WEBHOOK_URL et PORT sont conservées avec des valeurs par défaut
+        # et utilisées si le bot est démarré en mode Webhook (ex: sur Render.com).
         self.WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").rstrip("/")
         self.PORT = int(os.getenv("PORT", "10000"))
 
-        # Validation critique
+        # --- Validation ---
         if not self.BOT_TOKEN:
-            # Leve une erreur pour empêcher le bot de démarrer sans token
-            raise ValueError("❌ BOT_TOKEN manquant. Le bot ne peut pas démarrer sans jeton d'API.")
-        
-        # Logs pour le débogage
-        logger.info("=" * 50)
-        logger.info("🔧 Configuration du Bot (Format Simplifié)")
-        logger.info(f"✅ BOT_TOKEN configuré (longueur: {len(self.BOT_TOKEN)})")
-        logger.info(f"✅ ADMIN_CHAT_ID: {self.ADMIN_CHAT_ID or '⚠️ Manquant/Non utilisé en Polling par défaut'}")
-        logger.info(f"✅ TARGET_CHANNEL_ID: {self.TARGET_CHANNEL_ID}")
-        logger.info(f"✅ PREDICTION_CHANNEL_ID: {self.PREDICTION_CHANNEL_ID}")
-        logger.info("=" * 50)
-
+            raise ValueError("❌ BOT_TOKEN manquant. Le bot ne peut pas démarrer.")
 
     @property
     def webhook_path(self) -> str:
-        """Construit le chemin complet du webhook (pour le mode Webhook si réactivé)."""
+        """Construit le chemin complet du webhook."""
         return f"{self.WEBHOOK_URL}/webhook" if self.WEBHOOK_URL else ""
-        
+
