@@ -1,1 +1,1 @@
-web: python main_polling.py
+web: python main_render.py

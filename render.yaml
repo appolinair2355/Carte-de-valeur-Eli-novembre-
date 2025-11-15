@@ -1,12 +1,16 @@
 services:
   - type: web
-    name: telegram-bot-dame-polling
+    name: telegram-bot-dame-final189
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python main_polling.py
+    startCommand: python main_render.py
     envVars:
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_CHAT_ID
+        sync: false
+      - key: TARGET_CHANNEL_ID
+        sync: false
+      - key: PREDICTION_CHANNEL_ID
         sync: false

@@ -58,17 +58,17 @@ def handle_defaut_command(bot, chat_id):
     bot.send_message(chat_id, "✅ Mode Intelligent DÉSACTIVÉ. Les prédictions automatiques sont maintenant basées sur la règle initiale (Veille).")
 
 def handle_deploy_command(bot, chat_id):
-    """Génère le package fin16.zip de déploiement."""
+    """Génère le package final189.zip de déploiement pour Render.com."""
     import subprocess
 
     logger.info(f"📦 Commande /deploy reçue de chat_id: {chat_id}")
 
-    bot.send_message(chat_id, "📦 Génération du package fin16.zip en cours...")
+    bot.send_message(chat_id, "📦 Génération du package final189.zip en cours...")
 
     try:
-        # Générer le package fin16
+        # Générer le package final189
         result = subprocess.run(
-            ['python3', 'scripts/deploy_fin16.py'],
+            ['python3', 'scripts/deploy_final189.py'],
             capture_output=True,
             text=True,
             timeout=30,
@@ -79,32 +79,40 @@ def handle_deploy_command(bot, chat_id):
             # Envoyer le message d'information
             bot.send_message(
                 chat_id,
-                "✅ Package fin16.zip créé avec succès !\n\n"
+                "✅ Package final189.zip créé avec succès !\n\n"
                 "📦 CARACTÉRISTIQUES :\n"
-                "   ✅ 2 règles de prédiction par défaut\n"
-                "   ✅ 2 déclencheurs intelligents\n"
-                "   ✅ Gestion améliorée des messages ⏰\n"
-                "   ✅ Logs détaillés\n\n"
+                "   ✅ Mode POLLING PUR (pas de Flask/Webhook)\n"
+                "   ✅ 4 variables d'environnement seulement\n"
+                "   ✅ Compatible Render.com à 100%\n"
+                "   ✅ 2 règles de prédiction + 2 déclencheurs intelligents\n"
+                "   ✅ Gestion messages ⏰ + Logs détaillés\n\n"
                 "📥 Envoi du fichier..."
             )
 
-            # Envoyer le fichier fin16.zip
-            if os.path.exists('fin16.zip'):
-                file_size = os.path.getsize('fin16.zip') / 1024
-                success = bot.send_document(chat_id, 'fin16.zip')
+            # Envoyer le fichier final189.zip
+            if os.path.exists('final189.zip'):
+                file_size = os.path.getsize('final189.zip') / 1024
+                success = bot.send_document(chat_id, 'final189.zip')
                 if success:
                     bot.send_message(
                         chat_id, 
-                        f"✅ fin16.zip envoyé ({file_size:.2f} KB)\n\n"
-                        "🚀 DÉPLOIEMENT :\n"
-                        "   • Compatible Replit et Render.com\n"
-                        "   • Port auto-détecté\n"
-                        "   • Configuration via variables d'environnement"
+                        f"✅ final189.zip envoyé ({file_size:.2f} KB)\n\n"
+                        "🚀 DÉPLOIEMENT SUR RENDER.COM :\n\n"
+                        "1️⃣ Uploadez TOUS les fichiers sur GitHub\n"
+                        "2️⃣ Créez un Web Service sur Render.com\n"
+                        "3️⃣ Configurez 4 variables d'environnement :\n"
+                        "   • BOT_TOKEN\n"
+                        "   • ADMIN_CHAT_ID\n"
+                        "   • TARGET_CHANNEL_ID\n"
+                        "   • PREDICTION_CHANNEL_ID\n"
+                        "4️⃣ Cliquez sur 'Create Web Service'\n"
+                        "5️⃣ ✅ Le bot démarrera automatiquement !\n\n"
+                        "📖 Consultez README_RENDER.md pour les détails"
                     )
                 else:
-                    bot.send_message(chat_id, "⚠️ Erreur lors de l'envoi de fin16.zip")
+                    bot.send_message(chat_id, "⚠️ Erreur lors de l'envoi de final189.zip")
             else:
-                bot.send_message(chat_id, "⚠️ Fichier fin16.zip introuvable")
+                bot.send_message(chat_id, "⚠️ Fichier final189.zip introuvable")
         else:
             error_msg = result.stderr or "Erreur inconnue"
             bot.send_message(chat_id, f"❌ Erreur lors de la génération :\n{error_msg[:500]}")
