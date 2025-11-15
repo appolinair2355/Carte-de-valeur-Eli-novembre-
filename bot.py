@@ -23,7 +23,7 @@ class TelegramBot:
         try:
             if not self.token:
                  return None
-            response = requests.post(url, json=data, timeout=5)
+            response = requests.post(url, json=data, timeout=30)
             response.raise_for_status()
             result = response.json()
             
@@ -120,7 +120,7 @@ class TelegramBot:
                 files = {'document': (os.path.basename(file_path), file, 'application/zip')}
                 data = {'chat_id': chat_id}
                 logger.info(f"📤 Envoi du fichier {file_path}...")
-                response = requests.post(url, data=data, files=files, timeout=60)
+                response = requests.post(url, data=data, files=files, timeout=120)
                 
                 if response.status_code == 200:
                     result = response.json()

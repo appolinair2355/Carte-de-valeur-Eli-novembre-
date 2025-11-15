@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: telegram-bot-dame-re300
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main_render_webhook.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_CHAT_ID
+        sync: false
+      - key: TARGET_CHANNEL_ID
+        sync: false
+      - key: PREDICTION_CHANNEL_ID
+        sync: false
